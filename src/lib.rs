@@ -30,6 +30,7 @@ where
     T: std::marker::Send + Clone,
 {
     pub fn broadcast(&self, data: T) {
+        tracing::debug_span!("broadcasting data");
         let mut map = self.data.lock().unwrap();
         for x in map.iter_mut() {
             let new_data = data.clone();
@@ -59,6 +60,7 @@ where
             data: Arc::clone(&broadcaster.data),
         };
         thread::spawn(move || {
+            tracing::debug_span!("starting registration loop");
             broadcaster.registration_loop();
         });
         (tc, s)
@@ -73,6 +75,7 @@ where
         thread::scope(|s| {
             s.spawn(move || {
                 for msg in r.iter() {
+                    tracing::debug_span!("got a registration from listener");
                     let mut map = self.data.lock().unwrap();
                     map.push(msg);
                 }
