@@ -1,9 +1,26 @@
 [package]
-name = "broadcaster"
+name = "thread-broadcaster"
 version = "0.1.0"
+license = "MIT"
+description = "A SPMC (Single producer multi consumer) broadcasting channel to broadcast notifications between threads"
+readme = "README.md"
+homepage = "https://github.com/DarthBenro008/thread-broadcaster"
+repository = "https://github.com/DarthBenro008/thread-broadcaster"
+keywords = [
+    "spmc",
+    "thread-communication",
+    "concurrency",
+    "parallelism",
+    "channel",
+    "mpmc",
+]
+categories = ["concurrency", "multithreading", "algorithms"]
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[badges]
+is-it-maintained-issue-resolution = { repository = "darthbenro008/thread-broadcaster" }
+is-it-maintained-open-issues = { repository = "darthbenro008/thread-broadcaster" }
+maintenance = { status = "passively-maintained" }
 
 [dependencies]
 crossbeam-channel = { version = "0.5.8" }

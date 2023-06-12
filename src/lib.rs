@@ -2,6 +2,55 @@
 * Hemanth Krishna (DarthBenro008), Jun 2023
 */
 
+/*!
+# thread-broadcaster
+Thread Broadcaster is a Single Channel Multi-Producer (SPMC) library that enables the sending of notifications between threads.
+Unlike most Multi-Producer Multi-Consumer (MPMC) implementations, Thread Broadcaster ensures that all listeners receive the data, rather than just the first one.
+
+## Example
+
+```rust
+use core::time;
+use std::thread;
+
+use thread_broadcaster::{BroadcastListener, Broadcaster};
+
+fn main() {
+    let (b, s) = Broadcaster::<String>::new();
+    let s2 = s.clone();
+    thread::spawn(move || {
+        let ls1 = BroadcastListener::register_broadcast_listener(s);
+        for msg in ls1.channel {
+            println!(
+                "got broadcast with data: {} on thread {:#?}",
+                msg,
+                thread::current().id()
+            );
+        }
+    });
+    thread::spawn(move || {
+        let ls2 = BroadcastListener::register_broadcast_listener(s2);
+        for msg in ls2.channel {
+            println!(
+                "got broadcast with data: {} on thread {:#?}",
+                msg,
+                thread::current().id()
+            );
+        }
+    });
+    thread::spawn(move || {
+        // we wait for registration
+        thread::sleep(time::Duration::from_secs(1));
+        b.broadcast("something to broadcast".to_string());
+        // we wait for listeners to pickup before being dropped
+        thread::sleep(time::Duration::from_secs(2));
+    })
+    .join()
+    .unwrap();
+}
+```
+*/
+
 use std::{
     sync::{Arc, Mutex},
     thread,
@@ -9,6 +58,7 @@ use std::{
 
 use crossbeam_channel::{unbounded, Receiver, Sender};
 
+/// Responsible for registring new listeners to the broadcaster and to recieve data
 pub struct BroadcastListener<T> {
     pub channel: Receiver<T>,
 }
@@ -21,6 +71,7 @@ impl<T> BroadcastListener<T> {
     }
 }
 
+/// Returned objet on creation of thread-broadcaster responsible to broadcast data to threads
 pub struct Controller<T> {
     data: Arc<Mutex<Vec<Sender<T>>>>,
 }
@@ -39,6 +90,7 @@ where
     }
 }
 
+/// Allows to create a thread-broadcaster
 pub struct Broadcaster<T> {
     sender: Sender<Sender<T>>,
     reciver: Receiver<Sender<T>>,
@@ -70,7 +122,7 @@ where
         self.sender.clone()
     }
 
-    pub fn registration_loop(&self) {
+    fn registration_loop(&self) {
         let r = self.reciver.clone();
         thread::scope(|s| {
             s.spawn(move || {
