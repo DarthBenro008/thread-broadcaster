@@ -6,6 +6,4 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-crossbeam-channel = { version = "0.5.8", features = ["crossbeam-utils"] }
-crossbeam-utils = "0.8"
-tokio = { version = "1.28.2", features = ["full"] }
+crossbeam-channel = { version = "0.5.8" }

@@ -1,17 +1,15 @@
+/*
+* Hemanth Krishna (DarthBenro008), Jun 2023
+*/
+
 use std::{
-    process::id,
     sync::{Arc, Mutex},
     thread,
 };
 
 use crossbeam_channel::{unbounded, Receiver, Sender};
 
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
-
 pub struct BroadcastListener<T> {
-    sender: Sender<T>,
     pub channel: Receiver<T>,
 }
 
@@ -19,24 +17,20 @@ impl<T> BroadcastListener<T> {
     pub fn register_broadcast_listener(broadcaster: Sender<Sender<T>>) -> BroadcastListener<T> {
         let (s, r) = unbounded::<T>();
         broadcaster.send(s.clone()).unwrap();
-        BroadcastListener {
-            sender: s,
-            channel: r,
-        }
+        BroadcastListener { channel: r }
     }
 }
 
-pub struct Trial<T> {
+pub struct Controller<T> {
     data: Arc<Mutex<Vec<Sender<T>>>>,
 }
 
-impl<T> Trial<T>
+impl<T> Controller<T>
 where
     T: std::marker::Send + Clone,
 {
     pub fn broadcast(&self, data: T) {
         let mut map = self.data.lock().unwrap();
-        println!("map: {:#?}", map);
         for x in map.iter_mut() {
             let new_data = data.clone();
             x.send(new_data).unwrap();
@@ -54,91 +48,94 @@ impl<T> Broadcaster<T>
 where
     T: std::marker::Send + Clone + 'static,
 {
-    pub fn new() -> (Trial<T>, Sender<Sender<T>>) {
+    pub fn new() -> (Controller<T>, Sender<Sender<T>>) {
         let (s, r) = unbounded::<crossbeam_channel::Sender<T>>();
         let broadcaster = Broadcaster {
             sender: s.clone(),
             reciver: r,
             data: Arc::new(Mutex::new(vec![])),
         };
-        let tc = Trial {
+        let tc = Controller {
             data: Arc::clone(&broadcaster.data),
         };
-        tokio::spawn(async move {
-            broadcaster.registration_loop().await;
+        thread::spawn(move || {
+            broadcaster.registration_loop();
         });
         (tc, s)
     }
 
     pub fn broadcaster(self) -> Sender<Sender<T>> {
-        self.sender
+        self.sender.clone()
     }
 
-    pub async fn registration_loop(&self) {
-        println!("reg_loop started");
+    pub fn registration_loop(&self) {
         let r = self.reciver.clone();
-        // thread::spawn(move || {
-        //     for msg in r.iter() {
-        //         println!("loop");
-        //         let mut map = self.data.lock().unwrap();
-        //         println!("reg!");
-        //         map.push(msg);
-        //     }
-        // });
         thread::scope(|s| {
-            // let gg = s.spawn(move || loop {
-            //     let data = r.recv().unwrap();
-            //     let mut map = self.data.lock().unwrap();
-            //     println!("registration: new data!");
-            //     map.push(data);
-            // });
             s.spawn(move || {
-                println!("lmfao {:#?}", thread::current().id());
                 for msg in r.iter() {
-                    println!("loop");
                     let mut map = self.data.lock().unwrap();
-                    println!("reg!");
                     map.push(msg);
                 }
-                // for msg in r.iter() {
-                //     println!("loop");
-                //     let mut map = self.data.lock().unwrap();
-                //     println!("reg!");
-                //     map.push(msg);
-                // }
             });
         });
-    }
-
-    pub fn broadcast(&self, data: T) {
-        let mut map = self.data.lock().unwrap();
-        println!("map: {:#?}", map);
-        for x in map.iter_mut() {
-            let new_data = data.clone();
-            x.send(new_data).unwrap();
-        }
-    }
-
-    pub fn listener(&self) -> Receiver<T> {
-        let (s, r) = unbounded::<T>();
-        self.sender.send(s).unwrap();
-        r
     }
 }
 
 #[cfg(test)]
 mod tests {
     #[derive(Clone)]
-    pub struct gg {
-        id: String,
+    pub struct Test {
+        pub id: String,
     }
+
+    use core::time;
+
     use super::*;
 
     #[test]
-    fn it_works() {
-        println!("gg1");
-        let lol = Broadcaster::<gg>::new();
-        println!("gg");
-        assert!(true);
+    fn single_listener() {
+        let (b, s) = Broadcaster::<Test>::new();
+        let listener = BroadcastListener::register_broadcast_listener(s);
+        let obj = Test {
+            id: "test broadcast".to_string(),
+        };
+        thread::spawn(move || {
+            thread::sleep(time::Duration::from_secs(1));
+            b.broadcast(obj);
+        });
+        assert_eq!(listener.channel.recv().unwrap().id, "test broadcast")
+    }
+
+    #[test]
+    fn broadcast_two_listener() {
+        let (b, s) = Broadcaster::<Test>::new();
+        let ls2 = s.clone();
+        let listener = BroadcastListener::register_broadcast_listener(s);
+        let listener2 = BroadcastListener::register_broadcast_listener(ls2);
+        let results = Arc::new(Mutex::new(Vec::<String>::new()));
+        let comparator = Arc::new(Mutex::new(vec![
+            "test broadcast".to_string(),
+            "test broadcast".to_string(),
+        ]));
+        let ar1 = Arc::clone(&results);
+        let ar2 = Arc::clone(&results);
+        let obj = Test {
+            id: "test broadcast".to_string(),
+        };
+        let t1 = thread::spawn(move || {
+            let data = listener.channel.recv();
+            ar1.lock().unwrap().push(data.unwrap().id);
+        });
+        let t2 = thread::spawn(move || {
+            let data = listener2.channel.recv();
+            ar2.lock().unwrap().push(data.unwrap().id);
+        });
+        thread::spawn(move || {
+            thread::sleep(time::Duration::from_secs(1));
+            b.broadcast(obj);
+        });
+        let _ = t1.join().unwrap();
+        let _ = t2.join().unwrap();
+        assert_eq!(*comparator.lock().unwrap(), *results.lock().unwrap());
     }
 }
