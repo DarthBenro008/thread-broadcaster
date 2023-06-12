@@ -6,14 +6,7 @@ description = "A SPMC (Single producer multi consumer) broadcasting channel to b
 readme = "README.md"
 homepage = "https://github.com/DarthBenro008/thread-broadcaster"
 repository = "https://github.com/DarthBenro008/thread-broadcaster"
-keywords = [
-    "spmc",
-    "thread-communication",
-    "concurrency",
-    "parallelism",
-    "channel",
-    "mpmc",
-]
+keywords = ["spmc", "concurrency", "parallelism", "channel", "mpmc"]
 categories = ["concurrency", "multithreading", "algorithms"]
 edition = "2021"
 
